@@ -3,34 +3,33 @@ const BlockService = require('ipfs-block-service');
 const IPFSRepo = require('ipfs-repo'); // storage repo
 
 // const STRING = 'Hello World!';
-const JSON_OBJECT = {
+const farmanrl = {
   name: 'Richard Farman',
   username: 'farmanrl',
-  age: 31,
+  age: 23,
 };
 
-const getData = (cid, resolver) => {
-  resolver.get(cid, (err, result) => {
-    if (err) {
-      throw err;
-    }
-    console.log('GET Block');
-    console.log(result.value);
-    // const data = Buffer.from(JSON.parse(result.value.data.toString()));
+const getData = (cid, resolver) =>
+  new Promise((resolve, reject) => {
+    resolver.get(cid, (err, result) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(result);
+    });
   });
-};
 
-const putData = (data, resolver) => {
-  resolver.put(data, {
-    format: 'dag-cbor', hashAlg: 'sha2-256',
-  }, (err, cid) => {
-    if (err) {
-      throw err;
-    }
-    console.log('PUT Block');
-    getData(cid, resolver);
+const putData = (data, resolver) =>
+  new Promise((resolve, reject) => {
+    resolver.put(
+      data, { format: 'dag-cbor', hashAlg: 'sha2-256' },
+      (err, cid) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(cid);
+      });
   });
-};
 
 const getResolver = (repo) => {
   const blockService = new BlockService(repo);
@@ -38,42 +37,59 @@ const getResolver = (repo) => {
   return resolver;
 };
 
-const testRepo = (repo) => {
-  const resolver = getResolver(repo);
-  // const data = Buffer.from(STRING);
-  const data = JSON_OBJECT;
-  putData(data, resolver);
-};
-
-const openRepo = (repo) => {
-  repo.open((err) => {
-    if (err) {
-      throw err;
-    }
-    console.log('OPEN IPFSRepo');
-    testRepo(repo);
+const testResolver = (resolver) => {
+  const data = farmanrl;
+  putData(data, resolver).then((cid) => {
+    console.log(cid);
+    getData(cid, resolver).then((result) => {
+      console.log(result.value);
+    });
   });
 };
 
-const initRepo = (repo) => {
-  repo.init({ cool: 'config' }, (err) => {
-    if (err) {
-      throw err;
-    }
-    console.log('INIT IPFSRepo');
-    openRepo(repo);
+const openRepo = (repo) =>
+  new Promise((resolve, reject) => {
+    repo.open((err) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(repo);
+    });
   });
-};
 
-const getRepo = () => {
-  const repo = new IPFSRepo('repo');
-  repo.exists((err, bool) => {
-    if (bool) {
-      openRepo(repo);
-    } else {
-      initRepo(repo);
-    }
+const initRepo = (repo) =>
+  new Promise((resolve, reject) => {
+    repo.init({ cool: 'config' }, (err) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(repo);
+    });
   });
-};
 
-getRepo();
+const getRepo = () =>
+  new Promise((resolve, reject) => {
+    const repo = new IPFSRepo('repo');
+    repo.exists((err, bool) => {
+      if (bool) {
+        openRepo(repo).then((repo) => {
+          resolve(repo);
+        });
+      } else {
+        initRepo(repo).then((repo) => {
+          openRepo(repo).then((repo) => {
+            resolve(repo);
+          });
+        });
+      }
+    });
+  });
+
+const doFunc = () => {
+  getRepo().then((repo) => {
+    const resolver = getResolver(repo);
+    testResolver(resolver);
+  });
+}
+
+doFunc();
