@@ -1,19 +1,12 @@
 const Resolver = require('ipld-resolver');
 const BlockService = require('ipfs-block-service');
-const Block = require('ipfs-block');
-const multihashing = require('multihashing-async');
-const IPFS = require('ipfs');
-const IPFSRepo = require('ipfs-repo');  // storage repo
-const CID = require('cids');
+const IPFSRepo = require('ipfs-repo'); // storage repo
 
 // const STRING = 'Hello World!';
 const JSON_OBJECT = {
   name: 'Richard Farman',
   username: 'farmanrl',
-  IPFS: true,
-  object: {
-    data: 'data'
-  },
+  age: 31,
 };
 
 const getData = (cid, resolver) => {
@@ -22,28 +15,20 @@ const getData = (cid, resolver) => {
       throw err;
     }
     console.log('GET Block');
-    console.log(result.value.data.toString());
+    console.log(result.value);
     // const data = Buffer.from(JSON.parse(result.value.data.toString()));
   });
 };
 
 const putData = (data, resolver) => {
-  multihashing(data, 'sha2-256', (err, multihash) => {
+  resolver.put(data, {
+    format: 'dag-cbor', hashAlg: 'sha2-256',
+  }, (err, cid) => {
     if (err) {
       throw err;
     }
-
-    const cid = new CID(multihash);
-    const block = new Block(data, cid);
-
-    resolver.put(
-      block, { cid }, (err, result) => {
-        if (err) {
-          throw err;
-        }
-        console.log('PUT Block');
-        getData(result, resolver);
-      });
+    console.log('PUT Block');
+    getData(cid, resolver);
   });
 };
 
@@ -56,7 +41,7 @@ const getResolver = (repo) => {
 const testRepo = (repo) => {
   const resolver = getResolver(repo);
   // const data = Buffer.from(STRING);
-  const data = Buffer.from(JSON.stringify(JSON_OBJECT));
+  const data = JSON_OBJECT;
   putData(data, resolver);
 };
 
@@ -91,17 +76,4 @@ const getRepo = () => {
   });
 };
 
-const startNode = () => {
-  const node = new IPFS();
-
-  node.on('ready', () => {
-    console.log('READY IPFSNode');
-    getRepo();
-
-    node.stop(() => {
-      // node is now 'offline'
-    });
-  });
-};
-
-startNode();
+getRepo();
